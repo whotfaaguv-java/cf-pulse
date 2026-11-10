@@ -1,0 +1,2296 @@
+
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CODEFORCES PULSE // Friends Command Center</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cf: {
+              newbie: '#808080',
+              pupil: '#008000',
+              specialist: '#03a89e',
+              expert: '#0000ff',
+              cm: '#aa00aa',
+              master: '#ff8c00',
+              im: '#ff8c00',
+              gm: '#ff0000',
+              igm: '#ff0000',
+              lgm: '#ff0000',
+              obsidian: '#07090e',
+              card: 'rgba(13, 17, 23, 0.75)',
+              border: 'rgba(255, 255, 255, 0.08)',
+              cyan: '#00f2fe',
+              neon: '#4facfe',
+              purple: '#8b5cf6'
+            }
+          },
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+            sans: ['Inter', 'system-ui', 'sans-serif']
+          },
+          boxShadow: {
+            'glow-cyan': '0 0 25px -5px rgba(0, 242, 254, 0.3)',
+            'glow-purple': '0 0 25px -5px rgba(139, 92, 246, 0.3)',
+            'glow-red': '0 0 25px -5px rgba(239, 68, 68, 0.3)',
+            'inner-cyber': 'inset 0 1px 1px 0 rgba(255, 255, 255, 0.1)'
+          },
+          animation: {
+            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'float': 'float 6s ease-in-out infinite',
+            'scanline': 'scanline 8s linear infinite'
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-6px)' }
+            },
+            scanline: {
+              '0%': { transform: 'translateY(-100%)' },
+              '100%': { transform: 'translateY(1000%)' }
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- React 18 & Babel for turnkey browser compilation -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body {
+      background-color: #06070a;
+      color: #e2e8f0;
+      overflow-x: hidden;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    }
+
+    /* Custom Glassmorphism scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #090c13;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #38bdf8;
+    }
+
+    .glass-panel {
+      background: rgba(13, 17, 23, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      position: relative;
+    }
+
+    .glass-panel:hover {
+      border-color: rgba(56, 189, 248, 0.25);
+    }
+
+    .text-glow {
+      text-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+    }
+
+    .cyber-gradient-text {
+    background: linear-gradient(135deg, #00f2fe 0%, #4facfe 50%, #8b5cf6 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+    /* Tooltip styles */
+    .tippy-box {
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+  </style>
+</head>
+<body class="selection:bg-cyan-500/20 selection:text-cyan-300">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+    // ==========================================
+    // UTILS, RANKINGS & COLOR HELPERS
+    // ==========================================
+    const CF_RANKS = [
+      { min: 0, max: 1199, name: 'Newbie', color: '#808080', bg: 'rgba(128,128,128,0.15)', border: '#808080' },
+      { min: 1200, max: 1399, name: 'Pupil', color: '#008000', bg: 'rgba(0,128,0,0.15)', border: '#008000' },
+      { min: 1400, max: 1599, name: 'Specialist', color: '#03a89e', bg: 'rgba(3,168,158,0.15)', border: '#03a89e' },
+      { min: 1600, max: 1899, name: 'Expert', color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', border: '#3b82f6' },
+      { min: 1900, max: 2199, name: 'Candidate Master', color: '#a855f7', bg: 'rgba(168,85,247,0.15)', border: '#a855f7' },
+      { min: 2200, max: 2299, name: 'Master', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', border: '#f59e0b' },
+      { min: 2300, max: 2399, name: 'International Master', color: '#ea580c', bg: 'rgba(234,88,12,0.15)', border: '#ea580c' },
+      { min: 2400, max: 2599, name: 'Grandmaster', color: '#ef4444', bg: 'rgba(239,68,68,0.15)', border: '#ef4444' },
+      { min: 2600, max: 2999, name: 'International GM', color: '#dc2626', bg: 'rgba(220,38,38,0.2)', border: '#dc2626' },
+      { min: 3000, max: 9999, name: 'Legendary GM', color: '#ff0033', bg: 'rgba(255,0,51,0.25)', border: '#ff0033', isLgm: true }
+    ];
+
+    function getRankMeta(rating) {
+      if (!rating || rating <= 0) return { name: 'Unrated', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)', border: '#94a3b8' };
+      const matched = CF_RANKS.find(r => rating >= r.min && rating <= r.max);
+      return matched || CF_RANKS[0];
+    }
+
+    function formatDate(ts) {
+      if (!ts) return '-';
+      const d = new Date(ts * 1000);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function formatTimeAgo(ts) {
+      const sec = Math.floor((Date.now() - ts * 1000) / 1000);
+      if (sec < 60) return `${sec}s ago`;
+      const min = Math.floor(sec / 60);
+      if (min < 60) return `${min}m ago`;
+      const hr = Math.floor(min / 60);
+      if (hr < 24) return `${hr}h ago`;
+      const d = Math.floor(hr / 24);
+      return `${d}d ago`;
+    }
+
+    // Default sample handles to ensure out-of-the-box instant awesomeness
+    const DEFAULT_HANDLES = ['whotfaaguv.java', 'Arjun_7015', 'bhavishya4208', 'kalpy', 'pritishbaid' , 'PulkitDaddy', 'sahildewy19'];
+    const CACHE_KEY_HANDLES = 'CF_PULSE_MEMBERS_V2';
+    const CACHE_KEY_DATA = 'CF_PULSE_DATA_CACHE_V2';
+    const CACHE_EXPIRY = 5 * 60 * 1000; // 5 min client cache
+
+    // ==========================================
+    // 3D CANVAS CYBER BACKGROUND
+    // ==========================================
+    function CyberBackground() {
+      const canvasRef = useRef(null);
+
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let animationFrameId;
+        let width = (canvas.width = window.innerWidth);
+        let height = (canvas.height = window.innerHeight);
+
+        const handleResize = () => {
+          width = canvas.width = window.innerWidth;
+          height = canvas.height = window.innerHeight;
+        };
+        window.addEventListener('resize', handleResize);
+
+        // Grid nodes
+        const nodes = [];
+        const count = Math.min(65, Math.floor(width / 25));
+        for (let i = 0; i < count; i++) {
+          nodes.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            vx: (Math.random() - 0.5) * 0.45,
+            vy: (Math.random() - 0.5) * 0.45,
+            radius: Math.random() * 1.5 + 0.8,
+            color: Math.random() > 0.4 ? '#00f2fe' : '#8b5cf6'
+          });
+        }
+
+        let mouse = { x: -1000, y: -1000 };
+        const handleMouseMove = (e) => {
+          mouse.x = e.clientX;
+          mouse.y = e.clientY;
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+
+        const render = () => {
+          ctx.clearRect(0, 0, width, height);
+
+          // Subtle gradient vignette
+          const bgGrad = ctx.createRadialGradient(width / 2, height / 2, 50, width / 2, height / 2, Math.max(width, height) * 0.8);
+          bgGrad.addColorStop(0, '#0a0d14');
+          bgGrad.addColorStop(1, '#050608');
+          ctx.fillStyle = bgGrad;
+          ctx.fillRect(0, 0, width, height);
+
+          // Update & draw nodes
+          for (let i = 0; i < nodes.length; i++) {
+            const p = nodes[i];
+            p.x += p.vx;
+            p.y += p.vy;
+
+            if (p.x < 0 || p.x > width) p.vx *= -1;
+            if (p.y < 0 || p.y > height) p.vy *= -1;
+
+            // Mouse interaction
+            const dx = mouse.x - p.x;
+            const dy = mouse.y - p.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 120) {
+              p.x -= (dx / dist) * 1.2;
+              p.y -= (dy / dist) * 1.2;
+            }
+
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = p.color;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Connect nearby nodes
+            for (let j = i + 1; j < nodes.length; j++) {
+              const p2 = nodes[j];
+              const d2 = Math.hypot(p.x - p2.x, p.y - p2.y);
+              if (d2 < 140) {
+                const alpha = (1 - d2 / 140) * 0.18;
+                ctx.strokeStyle = `rgba(0, 242, 254, ${alpha})`;
+                ctx.lineWidth = 0.75;
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+              }
+            }
+          }
+
+          animationFrameId = requestAnimationFrame(render);
+        };
+        render();
+
+        return () => {
+          window.removeEventListener('resize', handleResize);
+          window.removeEventListener('mousemove', handleMouseMove);
+          cancelAnimationFrame(animationFrameId);
+        };
+      }, []);
+
+      return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" />;
+    }
+
+    // ==========================================
+    // MAIN APP COMPONENT
+    // ==========================================
+    function App() {
+      const [handles, setHandles] = useState(() => {
+        try {
+          const saved = localStorage.getItem(CACHE_KEY_HANDLES);
+          return saved ? JSON.parse(saved) : DEFAULT_HANDLES;
+        } catch {
+          return DEFAULT_HANDLES;
+        }
+      });
+
+      const [membersData, setMembersData] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [refreshing, setRefreshing] = useState(false);
+      const [progressMsg, setProgressMsg] = useState('Booting Pulse Terminal...');
+      const [error, setError] = useState(null);
+      const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'leaderboard' | 'activity' | 'analytics' | 'gamification' | 'manage'
+      const [selectedMember, setSelectedMember] = useState(null); // for deep profile modal
+      const [lastUpdated, setLastUpdated] = useState(null);
+      const [newHandleInput, setNewHandleInput] = useState('');
+      const [addingHandle, setAddingHandle] = useState(false);
+
+      // Persist handles
+      useEffect(() => {
+        localStorage.setItem(CACHE_KEY_HANDLES, JSON.stringify(handles));
+      }, [handles]);
+
+      // Lucide icon replacement trigger
+      useEffect(() => {
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+      });
+
+      // ==========================================
+      // DATA FETCHING & CODEFORCES COMPUTATIONS
+      // ==========================================
+      const fetchUserData = async (handleList, force = false) => {
+        if (!handleList || handleList.length === 0) {
+          setMembersData([]);
+          setLoading(false);
+          return;
+        }
+
+        try {
+          if (!force) {
+            const cached = localStorage.getItem(CACHE_KEY_DATA);
+            if (cached) {
+              const { timestamp, data } = JSON.parse(cached);
+              if (Date.now() - timestamp < CACHE_EXPIRY && data.length === handleList.length) {
+                // Verify all handles match
+                const cachedHandles = data.map(d => d.info.handle.toLowerCase()).sort();
+                const currentHandles = [...handleList].map(h => h.toLowerCase()).sort();
+                if (JSON.stringify(cachedHandles) === JSON.stringify(currentHandles)) {
+                  setMembersData(data);
+                  setLastUpdated(timestamp);
+                  setLoading(false);
+                  return;
+                }
+              }
+            }
+          }
+
+          setRefreshing(true);
+          setProgressMsg('Retrieving Codeforces Ranks & Metadata...');
+
+          // 1. Fetch user.info for all handles in batch
+          const handlesParam = handleList.join(';');
+          const infoRes = await fetch(`https://codeforces.com/api/user.info?handles=${encodeURIComponent(handlesParam)}`);
+          const infoJson = await infoRes.json();
+
+          if (infoJson.status !== 'OK') {
+            throw new Error(infoJson.comment || 'Failed to fetch user profiles from Codeforces API');
+          }
+
+          const userProfiles = infoJson.result;
+          const aggregated = [];
+          const nowTs = Math.floor(Date.now() / 1000);
+          const oneDayAgo = nowTs - 86400;
+          const sevenDaysAgo = nowTs - 7 * 86400;
+          const thirtyDaysAgo = nowTs - 30 * 86400;
+
+          // 2. Fetch individual submissions and ratings with sequential throttle
+          for (let i = 0; i < userProfiles.length; i++) {
+            const profile = userProfiles[i];
+            const handle = profile.handle;
+            setProgressMsg(`Synchronizing telemetry for ${handle} (${i + 1}/${userProfiles.length})...`);
+
+            // Fetch Submissions (up to 1200 recent accepted)
+            let submissions = [];
+            try {
+              const subRes = await fetch(`https://codeforces.com/api/user.status?handle=${encodeURIComponent(handle)}&from=1&count=1000`);
+              const subJson = await subRes.json();
+              if (subJson.status === 'OK') {
+                submissions = subJson.result;
+              }
+            } catch (err) {
+              console.warn(`Submissions fetch failed for ${handle}:`, err);
+            }
+
+            // Throttling to respect CF rate limit
+            await new Promise(r => setTimeout(r, 220));
+
+            // Fetch Contest History
+            let ratingHistory = [];
+            try {
+              const ratRes = await fetch(`https://codeforces.com/api/user.rating?handle=${encodeURIComponent(handle)}`);
+              const ratJson = await ratRes.json();
+              if (ratJson.status === 'OK') {
+                ratingHistory = ratJson.result;
+              }
+            } catch (err) {
+              console.warn(`Rating fetch failed for ${handle}:`, err);
+            }
+
+            // Process Accepted Problems (Unique by contestId + index)
+            const acceptedSubs = submissions.filter(s => s.verdict === 'OK');
+            
+            // Map of problemId -> earliest accepted submission timestamp
+            const uniqueProblemsMap = new Map();
+            const dailyCounts = {}; // YYYY-MM-DD -> count of unique problems solved that day
+            const difficultyMap = {}; // Rating level -> count
+            const tagsMap = {};
+
+            // Sort accepted submissions chronologically
+            const sortedAc = [...acceptedSubs].sort((a, b) => a.creationTimeSeconds - b.creationTimeSeconds);
+
+            sortedAc.forEach(sub => {
+              if (!sub.problem || !sub.problem.contestId) return;
+              const probKey = `${sub.problem.contestId}-${sub.problem.index}`;
+              
+              if (!uniqueProblemsMap.has(probKey)) {
+                uniqueProblemsMap.set(probKey, sub);
+
+                // Date string in local format
+                const dStr = new Date(sub.creationTimeSeconds * 1000).toISOString().split('T')[0];
+                dailyCounts[dStr] = (dailyCounts[dStr] || 0) + 1;
+
+                // Difficulty breakdown
+                if (sub.problem.rating) {
+                  const bucket = Math.floor(sub.problem.rating / 100) * 100;
+                  difficultyMap[bucket] = (difficultyMap[bucket] || 0) + 1;
+                }
+
+                // Tags breakdown
+                if (sub.problem.tags && Array.isArray(sub.problem.tags)) {
+                  sub.problem.tags.forEach(tag => {
+                    tagsMap[tag] = (tagsMap[tag] || 0) + 1;
+                  });
+                }
+              }
+            });
+
+            // Calculate metrics for windows based on unique problem solved timestamp
+            let solvedToday = 0;
+            let solved7d = 0;
+            let solved30d = 0;
+
+            uniqueProblemsMap.forEach(sub => {
+              const ts = sub.creationTimeSeconds;
+              if (ts >= oneDayAgo) solvedToday++;
+              if (ts >= sevenDaysAgo) solved7d++;
+              if (ts >= thirtyDaysAgo) solved30d++;
+            });
+
+            // Calculate Streaks
+            let currentStreak = 0;
+            let maxStreak = 0;
+            let streakCounter = 0;
+            const checkDate = new Date();
+            // Check day by day backwards
+            for (let d = 0; d < 365; d++) {
+              const dt = new Date(checkDate);
+              dt.setDate(dt.getDate() - d);
+              const key = dt.toISOString().split('T')[0];
+              if (dailyCounts[key] && dailyCounts[key] > 0) {
+                streakCounter++;
+                if (d === 0 || d === 1) {
+                  currentStreak = streakCounter;
+                }
+                maxStreak = Math.max(maxStreak, streakCounter);
+              } else {
+                if (d <= 1) {
+                  currentStreak = 0;
+                }
+                streakCounter = 0;
+              }
+            }
+
+            // Rating delta over last contest or 30 days
+            let ratingChange = 0;
+            if (ratingHistory.length > 0) {
+              const recentContests = ratingHistory.filter(c => c.ratingUpdateTimeSeconds >= thirtyDaysAgo);
+              if (recentContests.length > 0) {
+                ratingChange = recentContests[recentContests.length - 1].newRating - recentContests[0].oldRating;
+              } else {
+                const last = ratingHistory[ratingHistory.length - 1];
+                ratingChange = last.newRating - last.oldRating;
+              }
+            }
+
+            aggregated.push({
+              info: profile,
+              rankMeta: getRankMeta(profile.rating),
+              totalUniqueSolved: uniqueProblemsMap.size,
+              solvedToday,
+              solved7d,
+              solved30d,
+              ratingChange,
+              currentStreak,
+              maxStreak,
+              dailyCounts,
+              difficultyMap,
+              tagsMap,
+              recentAccepted: [...uniqueProblemsMap.values()].slice(-20).reverse(),
+              ratingHistory,
+              submissionsCount: submissions.length
+            });
+          }
+
+          // Cache result
+          const cachePayload = { timestamp: Date.now(), data: aggregated };
+          localStorage.setItem(CACHE_KEY_DATA, JSON.stringify(cachePayload));
+
+          setMembersData(aggregated);
+          setLastUpdated(Date.now());
+          setError(null);
+        } catch (err) {
+          console.error(err);
+          setError(err.message || 'Error communicating with Codeforces');
+        } finally {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      };
+
+      useEffect(() => {
+        fetchUserData(handles);
+      }, [handles]);
+
+      // Add a friend handle
+      const handleAddFriend = async (e) => {
+        e.preventDefault();
+        const trimmed = newHandleInput.trim();
+        if (!trimmed) return;
+        if (handles.some(h => h.toLowerCase() === trimmed.toLowerCase())) {
+          alert('This Codeforces handle is already in your circle.');
+          return;
+        }
+
+        setAddingHandle(true);
+        try {
+          // Validate handle against CF API
+          const res = await fetch(`https://codeforces.com/api/user.info?handles=${encodeURIComponent(trimmed)}`);
+          const json = await res.json();
+          if (json.status !== 'OK') {
+            alert(`Codeforces handle "${trimmed}" not found! Please check spelling.`);
+            setAddingHandle(false);
+            return;
+          }
+          const validHandle = json.result[0].handle;
+          const updated = [...handles, validHandle];
+          setHandles(updated);
+          setNewHandleInput('');
+          // Clear cache so fetch initiates
+          localStorage.removeItem(CACHE_KEY_DATA);
+          fetchUserData(updated, true);
+        } catch (err) {
+          alert('Failed to validate handle: ' + err.message);
+        } finally {
+          setAddingHandle(false);
+        }
+      };
+
+      const handleRemoveFriend = (handleToRemove) => {
+        if (handles.length <= 1) {
+          alert('You must have at least one handle in the tracker.');
+          return;
+        }
+        if (confirm(`Remove ${handleToRemove} from dashboard?`)) {
+          const updated = handles.filter(h => h.toLowerCase() !== handleToRemove.toLowerCase());
+          setHandles(updated);
+          localStorage.removeItem(CACHE_KEY_DATA);
+          fetchUserData(updated, true);
+          if (selectedMember && selectedMember.info.handle === handleToRemove) {
+            setSelectedMember(null);
+          }
+        }
+      };
+
+      // Summary Statistics Calculations
+      const groupStats = useMemo(() => {
+        if (!membersData || membersData.length === 0) return null;
+
+        const totalFriends = membersData.length;
+        const totalSolvedToday = membersData.reduce((acc, m) => acc + m.solvedToday, 0);
+        const totalSolved7d = membersData.reduce((acc, m) => acc + m.solved7d, 0);
+        const totalSolved30d = membersData.reduce((acc, m) => acc + m.solved30d, 0);
+
+        const ratedMembers = membersData.filter(m => m.info.rating);
+        const avgRating = ratedMembers.length > 0 
+          ? Math.round(ratedMembers.reduce((acc, m) => acc + m.info.rating, 0) / ratedMembers.length)
+          : 0;
+
+        // MVPs
+        const mostActiveToday = [...membersData].sort((a, b) => b.solvedToday - a.solvedToday)[0];
+        const weeklyMvp = [...membersData].sort((a, b) => b.solved7d - a.solved7d)[0];
+        const highestRated = [...membersData].sort((a, b) => (b.info.rating || 0) - (a.info.rating || 0))[0];
+        const streakTitan = [...membersData].sort((a, b) => b.currentStreak - a.currentStreak)[0];
+
+        return {
+          totalFriends,
+          totalSolvedToday,
+          totalSolved7d,
+          totalSolved30d,
+          avgRating,
+          mostActiveToday: (mostActiveToday && mostActiveToday.solvedToday > 0) ? mostActiveToday : null,
+          weeklyMvp: (weeklyMvp && weeklyMvp.solved7d > 0) ? weeklyMvp : null,
+          highestRated,
+          streakTitan: (streakTitan && streakTitan.currentStreak > 0) ? streakTitan : null
+        };
+      }, [membersData]);
+
+      return (
+        <div className="relative min-h-screen text-slate-200">
+          <CyberBackground />
+
+          {/* APP SHELL */}
+          <div className="relative z-10 flex flex-col min-h-screen">
+            
+            {/* TOP NAVIGATION / STATUS BAR */}
+            <header className="sticky top-0 z-40 border-b border-white/[0.08] bg-[#07090e]/80 backdrop-blur-xl">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+                
+                {/* Brand / Logo */}
+                <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('overview')}>
+                  <div className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-500 via-indigo-600 to-purple-600 p-[1px] shadow-glow-cyan animate-pulse-slow">
+                    <div className="w-full h-full bg-[#090d16] rounded-xl flex items-center justify-center">
+                      <span className="font-mono font-black text-cyan-400 text-lg tracking-tighter">&lt;/&gt;</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-extrabold tracking-wider text-white text-lg font-sans">CODEFORCES</span>
+                      <span className="px-1.5 py-0.5 text-[10px] font-mono font-bold tracking-widest uppercase bg-cyan-500/20 text-cyan-300 rounded border border-cyan-500/30">PULSE</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 font-mono tracking-tight flex items-center gap-1.5">
+                      <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                      CLAN TELEMETRY &bull; APEX v3.2
+                    </p>
+                  </div>
+                </div>
+
+                {/* Desktop Tabs */}
+                <nav className="hidden md:flex items-center space-x-1 bg-white/[0.03] p-1.5 rounded-xl border border-white/[0.06]">
+                  {[
+                    { id: 'overview', label: 'Command Hub', icon: 'layout-dashboard' },
+                    { id: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
+                    { id: 'activity', label: 'Daily Heatmap', icon: 'calendar' },
+                    { id: 'analytics', label: 'Telemetry Graphs', icon: 'line-chart' },
+                    { id: 'gamification', label: 'Badges & Arena', icon: 'award' },
+                    { id: 'manage', label: 'Squad (' + handles.length + ')', icon: 'users' },
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-medium font-mono transition-all duration-200 ${
+                        activeTab === tab.id
+                          ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-cyan-300 border border-cyan-500/40 shadow-glow-cyan'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+                      }`}
+                    >
+                      <i data-lucide={tab.icon} className="w-3.5 h-3.5"></i>
+                      <span>{tab.label}</span>
+                    </button>
+                  ))}
+                </nav>
+
+                {/* Right Actions: Sync Status & Refresh */}
+                <div className="flex items-center space-x-3">
+                  <div className="hidden lg:block text-right">
+                    <p className="text-[10px] text-slate-500 font-mono">CF API STATUS</p>
+                    <p className="text-xs font-mono text-emerald-400 flex items-center justify-end gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                      ONLINE &bull; {lastUpdated ? formatTimeAgo(Math.floor(lastUpdated / 1000)) : 'Syncing'}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => fetchUserData(handles, true)}
+                    disabled={refreshing}
+                    title="Force sync data from Codeforces API"
+                    className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] active:scale-95 border border-white/[0.08] hover:border-cyan-500/40 transition-all font-mono text-xs text-cyan-300 disabled:opacity-50"
+                  >
+                    <i data-lucide="refresh-cw" className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-cyan-400' : ''}`}></i>
+                    <span className="hidden sm:inline">{refreshing ? 'SYNCING...' : 'REFRESH'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Mobile Tab Bar */}
+              <div className="md:hidden flex overflow-x-auto px-4 py-2 border-t border-white/[0.05] space-x-2 no-scrollbar bg-[#080b12]">
+                {[
+                  { id: 'overview', label: 'Hub' },
+                  { id: 'leaderboard', label: 'Leaderboard' },
+                  { id: 'activity', label: 'Heatmap' },
+                  { id: 'analytics', label: 'Graphs' },
+                  { id: 'gamification', label: 'Badges' },
+                  { id: 'manage', label: 'Friends' },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono whitespace-nowrap transition-colors ${
+                      activeTab === tab.id ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'text-slate-400'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </header>
+
+            {/* ERROR BANNER */}
+            {error && (
+              <div className="bg-red-500/10 border-b border-red-500/30 text-red-400 px-4 py-2.5 text-xs font-mono flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <i data-lucide="alert-triangle" className="w-4 h-4 text-red-400"></i>
+                  <span>[CF_TELEMETRY_WARN] {error}</span>
+                </div>
+                <button onClick={() => fetchUserData(handles, true)} className="underline hover:text-white">Retry Connection</button>
+              </div>
+            )}
+
+            {/* MAIN CONTENT AREA */}
+            <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+              
+              {/* LOADING OVERLAY */}
+              {loading && membersData.length === 0 ? (
+                <div className="py-32 flex flex-col items-center justify-center text-center">
+                  <div className="relative w-20 h-20 mb-6">
+                    <div className="absolute inset-0 rounded-full border-2 border-cyan-500/20 animate-ping"></div>
+                    <div className="w-20 h-20 rounded-full border-2 border-t-cyan-400 border-r-purple-500 border-b-transparent border-l-transparent animate-spin"></div>
+                    <div className="absolute inset-0 flex items-center justify-center font-mono text-cyan-400 text-xs font-bold">CF</div>
+                  </div>
+                  <h3 className="text-xl font-bold font-sans tracking-wide cyber-gradient-text">{progressMsg}</h3>
+                  <p className="text-xs font-mono text-slate-500 mt-2">Accessing Codeforces REST API endpoints (user.info, user.status, user.rating)...</p>
+                </div>
+              ) : (
+                <>
+                  {/* TAB 1: OVERVIEW COMMAND HUB */}
+                  {activeTab === 'overview' && (
+                    <OverviewTab
+                      stats={groupStats}
+                      members={membersData}
+                      onSelectMember={(m) => setSelectedMember(m)}
+                      onGoToLeaderboard={() => setActiveTab('leaderboard')}
+                    />
+                  )}
+
+                  {/* TAB 2: FRIENDS LEADERBOARD */}
+                  {activeTab === 'leaderboard' && (
+                    <LeaderboardTab
+                      members={membersData}
+                      onSelectMember={(m) => setSelectedMember(m)}
+                    />
+                  )}
+
+                  {/* TAB 3: DAILY ACTIVITY & HEATMAP */}
+                  {activeTab === 'activity' && (
+                    <DailyActivityTab
+                      members={membersData}
+                      onSelectMember={(m) => setSelectedMember(m)}
+                    />
+                  )}
+
+                  {/* TAB 4: TELEMETRY GRAPHS */}
+                  {activeTab === 'analytics' && (
+                    <AnalyticsTab
+                      members={membersData}
+                    />
+                  )}
+
+                  {/* TAB 5: GAMIFICATION & BADGES */}
+                  {activeTab === 'gamification' && (
+                    <GamificationTab
+                      members={membersData}
+                      stats={groupStats}
+                      onSelectMember={(m) => setSelectedMember(m)}
+                    />
+                  )}
+
+                  {/* TAB 6: SQUAD MANAGEMENT */}
+                  {activeTab === 'manage' && (
+                    <ManageSquadTab
+                      handles={handles}
+                      members={membersData}
+                      newHandle={newHandleInput}
+                      setNewHandle={setNewHandleInput}
+                      onAdd={handleAddFriend}
+                      onRemove={handleRemoveFriend}
+                      adding={addingHandle}
+                      onReset={() => {
+                        setHandles(DEFAULT_HANDLES);
+                        localStorage.removeItem(CACHE_KEY_DATA);
+                        fetchUserData(DEFAULT_HANDLES, true);
+                      }}
+                    />
+                  )}
+                </>
+              )}
+            </main>
+
+            {/* FOOTER */}
+            <footer className="mt-auto border-t border-white/[0.06] py-6 bg-[#06080e]/90 backdrop-blur-md">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between text-xs font-mono text-slate-500 gap-4">
+                <div className="flex items-center space-x-2">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                  <span>Codeforces Pulse &bull; Precision Competitive Programming Intelligence</span>
+                </div>
+                <div>
+                  Telemetry queried directly from official <a href="https://codeforces.com/apiHelp" target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline">Codeforces API v1.0</a>.
+                </div>
+              </div>
+            </footer>
+          </div>
+
+          {/* INDIVIDUAL PROFILE MODAL */}
+          {selectedMember && (
+            <ProfileModal
+              member={selectedMember}
+              onClose={() => setSelectedMember(null)}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // ==========================================
+    // COMPONENT: OVERVIEW TAB
+    // ==========================================
+    function OverviewTab({ stats, members, onSelectMember, onGoToLeaderboard }) {
+      if (!stats) return null;
+
+      return (
+        <div className="space-y-8 animate-fadeIn">
+          {/* TOP BANNER / HERO SUMMARY */}
+          <div className="relative overflow-hidden rounded-2xl p-6 sm:p-8 glass-panel border-cyan-500/20 bg-gradient-to-r from-cyan-950/20 via-purple-950/20 to-slate-900/40 shadow-glow-cyan">
+            <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+              <div>
+                <div className="flex items-center space-x-2 mb-2">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">Squad Status: Active</span>
+                  <span className="text-xs text-slate-400 font-mono">&bull; {stats.totalFriends} Competitors In Orbit</span>
+                </div>
+                <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white">
+                  Clan Performance <span className="cyber-gradient-text">Matrix</span>
+                </h1>
+                <p className="text-sm text-slate-400 font-sans mt-2 max-w-2xl leading-relaxed">
+                  Real-time synchronization of Codeforces accepted solutions, rating shifts, daily solving velocity, and consistency streaks.
+                </p>
+              </div>
+
+              {/* Quick Metrics Capsule */}
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="bg-[#0b0f19]/80 border border-white/[0.08] rounded-xl px-4 py-3 min-w-[120px]">
+                  <p className="text-[10px] font-mono text-slate-400">TODAY'S AC</p>
+                  <p className="text-2xl font-mono font-bold text-cyan-400">+{stats.totalSolvedToday}</p>
+                </div>
+                <div className="bg-[#0b0f19]/80 border border-white/[0.08] rounded-xl px-4 py-3 min-w-[120px]">
+                  <p className="text-[10px] font-mono text-slate-400">7-DAY VOLUME</p>
+                  <p className="text-2xl font-mono font-bold text-purple-400">+{stats.totalSolved7d}</p>
+                </div>
+                <div className="bg-[#0b0f19]/80 border border-white/[0.08] rounded-xl px-4 py-3 min-w-[120px]">
+                  <p className="text-[10px] font-mono text-slate-400">CLAN AVG RATING</p>
+                  <p className="text-2xl font-mono font-bold text-amber-400">{stats.avgRating}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 3D-STYLE KPI STAT CARDS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Card 1: Daily MVP */}
+            <div className="glass-panel rounded-xl p-5 border-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 group">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-mono text-cyan-400 font-semibold tracking-wider uppercase">Daily Vanguard</span>
+                <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 group-hover:scale-110 transition-transform">
+                  <i data-lucide="zap" className="w-4 h-4"></i>
+                </div>
+              </div>
+              {stats.mostActiveToday ? (
+                <div className="cursor-pointer" onClick={() => onSelectMember(stats.mostActiveToday)}>
+                  <div className="flex items-center space-x-3">
+                    <img
+                      src={stats.mostActiveToday.info.avatar || stats.mostActiveToday.info.titlePhoto}
+                      alt={stats.mostActiveToday.info.handle}
+                      className="w-10 h-10 rounded-full border border-cyan-500/40 object-cover"
+                    />
+                    <div>
+                      <p className="font-bold text-white text-base hover:text-cyan-400 transition-colors flex items-center gap-1.5">
+                        {stats.mostActiveToday.info.handle}
+                      </p>
+                      <p className="text-xs font-mono text-cyan-300 font-semibold">
+                        {stats.mostActiveToday.solvedToday} unique problems today
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs font-mono text-slate-500">No solutions recorded today yet. Who will break the ice?</p>
+              )}
+            </div>
+
+            {/* Card 2: Weekly MVP */}
+            <div className="glass-panel rounded-xl p-5 border-purple-500/20 hover:border-purple-500/50 transition-all duration-300 group">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-mono text-purple-400 font-semibold tracking-wider uppercase">Weekly MVP (7D)</span>
+                <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 group-hover:scale-110 transition-transform">
+                  <i data-lucide="flame" className="w-4 h-4"></i>
+                </div>
+              </div>
+              {stats.weeklyMvp ? (
+                <div className="cursor-pointer" onClick={() => onSelectMember(stats.weeklyMvp)}>
+                  <div className="flex items-center space-x-3">
+                    <img
+                      src={stats.weeklyMvp.info.avatar || stats.weeklyMvp.info.titlePhoto}
+                      alt={stats.weeklyMvp.info.handle}
+                      className="w-10 h-10 rounded-full border border-purple-500/40 object-cover"
+                    />
+                    <div>
+                      <p className="font-bold text-white text-base hover:text-purple-400 transition-colors">
+                        {stats.weeklyMvp.info.handle}
+                      </p>
+                      <p className="text-xs font-mono text-purple-300 font-semibold">
+                        {stats.weeklyMvp.solved7d} solved this week
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs font-mono text-slate-500">Zero accepted submissions in past 7 days.</p>
+              )}
+            </div>
+
+            {/* Card 3: Highest Rated */}
+            <div className="glass-panel rounded-xl p-5 border-red-500/20 hover:border-red-500/50 transition-all duration-300 group">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-mono text-rose-400 font-semibold tracking-wider uppercase">Apex Predator</span>
+                <div className="p-2 rounded-lg bg-red-500/10 text-red-400 group-hover:scale-110 transition-transform">
+                  <i data-lucide="crown" className="w-4 h-4"></i>
+                </div>
+              </div>
+              {stats.highestRated ? (
+                <div className="cursor-pointer" onClick={() => onSelectMember(stats.highestRated)}>
+                  <div className="flex items-center space-x-3">
+                    <img
+                      src={stats.highestRated.info.avatar || stats.highestRated.info.titlePhoto}
+                      alt={stats.highestRated.info.handle}
+                      className="w-10 h-10 rounded-full border border-red-500/40 object-cover"
+                    />
+                    <div>
+                      <p className="font-bold text-white text-base hover:text-red-400 transition-colors">
+                        {stats.highestRated.info.handle}
+                      </p>
+                      <p className="text-xs font-mono" style={{ color: stats.highestRated.rankMeta.color }}>
+                        {stats.highestRated.info.rating || 0} &bull; {stats.highestRated.rankMeta.name}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Card 4: Streak Titan */}
+            <div className="glass-panel rounded-xl p-5 border-amber-500/20 hover:border-amber-500/50 transition-all duration-300 group">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-mono text-amber-400 font-semibold tracking-wider uppercase">Streak Master</span>
+                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 group-hover:scale-110 transition-transform">
+                  <i data-lucide="activity" className="w-4 h-4"></i>
+                </div>
+              </div>
+              {stats.streakTitan ? (
+                <div className="cursor-pointer" onClick={() => onSelectMember(stats.streakTitan)}>
+                  <div className="flex items-center space-x-3">
+                    <img
+                      src={stats.streakTitan.info.avatar || stats.streakTitan.info.titlePhoto}
+                      alt={stats.streakTitan.info.handle}
+                      className="w-10 h-10 rounded-full border border-amber-500/40 object-cover"
+                    />
+                    <div>
+                      <p className="font-bold text-white text-base hover:text-amber-400 transition-colors">
+                        {stats.streakTitan.info.handle}
+                      </p>
+                      <p className="text-xs font-mono text-amber-300 font-semibold">
+                        {stats.streakTitan.currentStreak} Days Consecutive 🔥
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs font-mono text-slate-500">No active continuous streak.</p>
+              )}
+            </div>
+          </div>
+
+          {/* TWO COLUMN GRID: TOP PERFORMERS & LIVE FEED */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Left 2 Cols: Leaderboard Preview Table */}
+            <div className="lg:col-span-2 glass-panel rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></div>
+                  <h3 className="text-lg font-bold text-white font-sans tracking-wide">Friends Leaderboard Preview</h3>
+                </div>
+                <button
+                  onClick={onGoToLeaderboard}
+                  className="text-xs font-mono text-cyan-400 hover:text-cyan-300 flex items-center space-x-1"
+                >
+                  <span>FULL BOARD</span>
+                  <i data-lucide="arrow-right" className="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left font-mono text-xs">
+                  <thead>
+                    <tr className="border-b border-white/[0.06] text-slate-400 uppercase text-[10px] tracking-wider">
+                      <th className="pb-3 pl-2">Rank</th>
+                      <th className="pb-3">User</th>
+                      <th className="pb-3 text-right">Rating</th>
+                      <th className="pb-3 text-right">Today</th>
+                      <th className="pb-3 text-right">7 Days</th>
+                      <th className="pb-3 text-right">Total AC</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {[...members]
+                      .sort((a, b) => (b.info.rating || 0) - (a.info.rating || 0))
+                      .slice(0, 5)
+                      .map((m, idx) => (
+                        <tr
+                          key={m.info.handle}
+                          onClick={() => onSelectMember(m)}
+                          className="hover:bg-white/[0.03] transition-colors cursor-pointer group"
+                        >
+                          <td className="py-3.5 pl-2 font-bold">
+                            {idx === 0 && <span className="text-amber-400">#1</span>}
+                            {idx === 1 && <span className="text-slate-300">#2</span>}
+                            {idx === 2 && <span className="text-amber-600">#3</span>}
+                            {idx > 2 && <span className="text-slate-500">#{idx + 1}</span>}
+                          </td>
+                          <td className="py-3.5">
+                            <div className="flex items-center space-x-3">
+                              <img
+                                src={m.info.avatar || m.info.titlePhoto}
+                                alt={m.info.handle}
+                                className="w-7 h-7 rounded-full border border-white/[0.1]"
+                              />
+                              <div>
+                                <span className="font-bold text-white group-hover:text-cyan-300 transition-colors">
+                                  {m.info.handle}
+                                </span>
+                                <span className="block text-[10px]" style={{ color: m.rankMeta.color }}>
+                                  {m.rankMeta.name}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3.5 text-right font-bold" style={{ color: m.rankMeta.color }}>
+                            {m.info.rating || '-'}
+                          </td>
+                          <td className="py-3.5 text-right text-cyan-400 font-semibold">
+                            {m.solvedToday > 0 ? `+${m.solvedToday}` : '0'}
+                          </td>
+                          <td className="py-3.5 text-right text-purple-400 font-semibold">
+                            +{m.solved7d}
+                          </td>
+                          <td className="py-3.5 text-right text-slate-300">
+                            {m.totalUniqueSolved}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Right 1 Col: Live Problem AC Wire (Aggregated Clan Activity) */}
+            <div className="glass-panel rounded-2xl p-6 flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <i data-lucide="terminal" className="w-4 h-4 text-emerald-400"></i>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-white font-mono">Live Solved Stream</h3>
+                </div>
+                <span className="text-[10px] font-mono text-emerald-400/80 bg-emerald-500/10 px-2 py-0.5 rounded">REAL-TIME</span>
+              </div>
+
+              <div className="space-y-3 overflow-y-auto max-h-[380px] pr-1">
+                {(() => {
+                  // Merge accepted submissions across all friends and sort
+                  const stream = [];
+                  members.forEach(m => {
+                    m.recentAccepted.forEach(sub => {
+                      stream.push({
+                        handle: m.info.handle,
+                        avatar: m.info.avatar,
+                        color: m.rankMeta.color,
+                        sub
+                      });
+                    });
+                  });
+                  stream.sort((a, b) => b.sub.creationTimeSeconds - a.sub.creationTimeSeconds);
+
+                  if (stream.length === 0) {
+                    return <p className="text-xs font-mono text-slate-500 py-8 text-center">No recent solutions.</p>;
+                  }
+
+                  return stream.slice(0, 8).map((item, i) => (
+                    <div
+                      key={i}
+                      className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-cyan-500/30 transition-all text-xs font-mono"
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="font-bold" style={{ color: item.color }}>{item.handle}</span>
+                        <span className="text-[10px] text-slate-500">{formatTimeAgo(item.sub.creationTimeSeconds)}</span>
+                      </div>
+                      <a
+                        href={`https://codeforces.com/contest/${item.sub.problem.contestId}/problem/${item.sub.problem.index}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-white hover:text-cyan-400 transition-colors font-sans font-medium line-clamp-1 flex items-center gap-1.5"
+                      >
+                        <span>{item.sub.problem.index}. {item.sub.problem.name}</span>
+                        <i data-lucide="external-link" className="w-3 h-3 text-slate-500 inline"></i>
+                      </a>
+                      <div className="flex items-center gap-2 mt-2">
+                        {item.sub.problem.rating && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-cyan-950/40 text-cyan-400 border border-cyan-800/40">
+                            ★ {item.sub.problem.rating}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                          ACCEPTED
+                        </span>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // COMPONENT: LEADERBOARD TAB
+    // ==========================================
+    function LeaderboardTab({ members, onSelectMember }) {
+      const [sortBy, setSortBy] = useState('rating'); // 'rating' | 'today' | 'week' | 'month' | 'change' | 'total'
+
+      const sortedMembers = useMemo(() => {
+        return [...members].sort((a, b) => {
+          if (sortBy === 'rating') return (b.info.rating || 0) - (a.info.rating || 0);
+          if (sortBy === 'today') return b.solvedToday - a.solvedToday;
+          if (sortBy === 'week') return b.solved7d - a.solved7d;
+          if (sortBy === 'month') return b.solved30d - a.solved30d;
+          if (sortBy === 'change') return b.ratingChange - a.ratingChange;
+          if (sortBy === 'total') return b.totalUniqueSolved - a.totalUniqueSolved;
+          return 0;
+        });
+      }, [members, sortBy]);
+
+      const topThree = sortedMembers.slice(0, 3);
+
+      return (
+        <div className="space-y-8 animate-fadeIn">
+          {/* Header & Controls */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-black tracking-tight text-white font-sans flex items-center gap-2">
+                <i data-lucide="trophy" className="w-6 h-6 text-amber-400"></i>
+                <span>Friends Arena Leaderboard</span>
+              </h2>
+              <p className="text-xs font-mono text-slate-400 mt-1">Multi-dimensional CP power ranking.</p>
+            </div>
+
+            {/* Sorting pill selectors */}
+            <div className="flex items-center gap-1.5 bg-white/[0.04] p-1 rounded-xl border border-white/[0.08] overflow-x-auto">
+              {[
+                { id: 'rating', label: 'Rating' },
+                { id: 'today', label: 'Today' },
+                { id: 'week', label: '7-Day' },
+                { id: 'month', label: '30-Day' },
+                { id: 'change', label: 'Δ Rating' },
+                { id: 'total', label: 'Total AC' },
+              ].map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => setSortBy(opt.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all ${
+                    sortBy === opt.id
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-glow-cyan'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 3D PODIUM FOR TOP 3 */}
+          {topThree.length >= 3 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 pb-2">
+              {/* #2 Rank */}
+              <div
+                onClick={() => onSelectMember(topThree[1])}
+                className="order-2 md:order-1 glass-panel rounded-2xl p-6 border-slate-400/30 hover:border-slate-300 transition-all cursor-pointer relative overflow-hidden group translate-y-3"
+              >
+                <div className="absolute top-3 right-4 font-mono font-black text-4xl text-slate-400/20">#02</div>
+                <div className="flex flex-col items-center text-center">
+                  <div className="relative mb-3">
+                    <img
+                      src={topThree[1].info.avatar || topThree[1].info.titlePhoto}
+                      alt={topThree[1].info.handle}
+                      className="w-16 h-16 rounded-full border-2 border-slate-400 object-cover"
+                    />
+                    <span className="absolute -bottom-1 -right-1 bg-slate-600 text-white font-mono text-xs font-bold px-1.5 py-0.5 rounded-full border border-slate-400">2</span>
+                  </div>
+                  <h4 className="font-bold text-white text-base group-hover:text-cyan-300 transition-colors">{topThree[1].info.handle}</h4>
+                  <p className="text-xs font-mono font-bold" style={{ color: topThree[1].rankMeta.color }}>{topThree[1].rankMeta.name}</p>
+                  <p className="text-xl font-mono font-black text-white mt-2">{topThree[1].info.rating || 0}</p>
+                  <div className="mt-4 pt-3 border-t border-white/[0.08] w-full grid grid-cols-2 text-xs font-mono">
+                    <div>
+                      <span className="text-slate-400 text-[10px] block">TODAY</span>
+                      <span className="text-cyan-400 font-bold">+{topThree[1].solvedToday}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[10px] block">7-DAY</span>
+                      <span className="text-purple-400 font-bold">+{topThree[1].solved7d}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* #1 Rank (Elevated) */}
+              <div
+                onClick={() => onSelectMember(topThree[0])}
+                className="order-1 md:order-2 glass-panel rounded-2xl p-6 border-amber-500/40 bg-gradient-to-b from-amber-500/10 to-transparent hover:border-amber-400 transition-all cursor-pointer relative overflow-hidden group -translate-y-2 shadow-glow-cyan"
+              >
+                <div className="absolute top-2 right-4 font-mono font-black text-5xl text-amber-500/20">#01</div>
+                <div className="flex flex-col items-center text-center">
+                  <div className="relative mb-3">
+                    <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-amber-400 to-yellow-600 animate-pulse blur-sm"></div>
+                    <img
+                      src={topThree[0].info.avatar || topThree[0].info.titlePhoto}
+                      alt={topThree[0].info.handle}
+                      className="relative w-20 h-20 rounded-full border-2 border-amber-400 object-cover"
+                    />
+                    <span className="absolute -bottom-1 -right-1 bg-amber-500 text-black font-mono text-xs font-black px-2 py-0.5 rounded-full shadow-lg">👑 1</span>
+                  </div>
+                  <h4 className="font-bold text-white text-lg group-hover:text-amber-400 transition-colors">{topThree[0].info.handle}</h4>
+                  <p className="text-xs font-mono font-bold" style={{ color: topThree[0].rankMeta.color }}>{topThree[0].rankMeta.name}</p>
+                  <p className="text-2xl font-mono font-black text-amber-400 mt-2">{topThree[0].info.rating || 0}</p>
+                  <div className="mt-4 pt-3 border-t border-white/[0.08] w-full grid grid-cols-2 text-xs font-mono">
+                    <div>
+                      <span className="text-slate-400 text-[10px] block">TODAY</span>
+                      <span className="text-cyan-400 font-bold">+{topThree[0].solvedToday}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[10px] block">7-DAY</span>
+                      <span className="text-purple-400 font-bold">+{topThree[0].solved7d}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* #3 Rank */}
+              <div
+                onClick={() => onSelectMember(topThree[2])}
+                className="order-3 glass-panel rounded-2xl p-6 border-amber-800/30 hover:border-amber-700 transition-all cursor-pointer relative overflow-hidden group translate-y-4"
+              >
+                <div className="absolute top-3 right-4 font-mono font-black text-4xl text-amber-800/20">#03</div>
+                <div className="flex flex-col items-center text-center">
+                  <div className="relative mb-3">
+                    <img
+                      src={topThree[2].info.avatar || topThree[2].info.titlePhoto}
+                      alt={topThree[2].info.handle}
+                      className="w-16 h-16 rounded-full border-2 border-amber-700 object-cover"
+                    />
+                    <span className="absolute -bottom-1 -right-1 bg-amber-800 text-amber-200 font-mono text-xs font-bold px-1.5 py-0.5 rounded-full border border-amber-600">3</span>
+                  </div>
+                  <h4 className="font-bold text-white text-base group-hover:text-cyan-300 transition-colors">{topThree[2].info.handle}</h4>
+                  <p className="text-xs font-mono font-bold" style={{ color: topThree[2].rankMeta.color }}>{topThree[2].rankMeta.name}</p>
+                  <p className="text-xl font-mono font-black text-white mt-2">{topThree[2].info.rating || 0}</p>
+                  <div className="mt-4 pt-3 border-t border-white/[0.08] w-full grid grid-cols-2 text-xs font-mono">
+                    <div>
+                      <span className="text-slate-400 text-[10px] block">TODAY</span>
+                      <span className="text-cyan-400 font-bold">+{topThree[2].solvedToday}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[10px] block">7-DAY</span>
+                      <span className="text-purple-400 font-bold">+{topThree[2].solved7d}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* COMPLETE TABLE VIEW */}
+          <div className="glass-panel rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left font-mono text-xs">
+                <thead>
+                  <tr className="border-b border-white/[0.08] bg-white/[0.02] text-slate-400 uppercase text-[10px] tracking-wider">
+                    <th className="py-4 px-4">Pos</th>
+                    <th className="py-4 px-4">Programmer</th>
+                    <th className="py-4 px-4 text-center">Rank Title</th>
+                    <th className="py-4 px-4 text-right">Rating (Peak)</th>
+                    <th className="py-4 px-4 text-right">Today</th>
+                    <th className="py-4 px-4 text-right">7-Day</th>
+                    <th className="py-4 px-4 text-right">30-Day</th>
+                    <th className="py-4 px-4 text-right">Rating Δ</th>
+                    <th className="py-4 px-4 text-right">Streak</th>
+                    <th className="py-4 px-4 text-right">Unique Solved</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {sortedMembers.map((m, idx) => (
+                    <tr
+                      key={m.info.handle}
+                      onClick={() => onSelectMember(m)}
+                      className="hover:bg-cyan-500/[0.03] transition-colors cursor-pointer group"
+                    >
+                      <td className="py-4 px-4 font-bold text-slate-400">
+                        {idx + 1}
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center space-x-3">
+                          <img
+                            src={m.info.avatar || m.info.titlePhoto}
+                            alt={m.info.handle}
+                            className="w-9 h-9 rounded-full border border-white/[0.1] object-cover"
+                          />
+                          <div>
+                            <span className="font-bold text-white text-sm group-hover:text-cyan-300 transition-colors block">
+                              {m.info.handle}
+                            </span>
+                            <span className="text-[10px] text-slate-500">{m.info.city ? `${m.info.city}, ` : ''}{m.info.country || 'Global'}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <span
+                          className="px-2 py-0.5 rounded text-[10px] font-bold inline-block border"
+                          style={{
+                            color: m.rankMeta.color,
+                            backgroundColor: m.rankMeta.bg,
+                            borderColor: m.rankMeta.border + '44'
+                          }}
+                        >
+                          {m.rankMeta.name}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-right font-bold text-sm">
+                        <span style={{ color: m.rankMeta.color }}>{m.info.rating || '-'}</span>
+                        <span className="text-slate-500 text-[10px] block font-normal">
+                          Max: {m.info.maxRating || '-'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-right font-bold text-cyan-400">
+                        {m.solvedToday > 0 ? `+${m.solvedToday}` : '0'}
+                      </td>
+                      <td className="py-4 px-4 text-right font-bold text-purple-400">
+                        +{m.solved7d}
+                      </td>
+                      <td className="py-4 px-4 text-right font-bold text-slate-300">
+                        +{m.solved30d}
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <span className={`font-bold ${m.ratingChange > 0 ? 'text-emerald-400' : m.ratingChange < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                          {m.ratingChange > 0 ? `+${m.ratingChange}` : m.ratingChange}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-right font-mono">
+                        {m.currentStreak > 0 ? (
+                          <span className="text-amber-400 font-bold">{m.currentStreak}d 🔥</span>
+                        ) : (
+                          <span className="text-slate-600">0d</span>
+                        )}
+                      </td>
+                      <td className="py-4 px-4 text-right font-bold text-slate-200">
+                        {m.totalUniqueSolved}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // COMPONENT: DAILY ACTIVITY & HEATMAP
+    // ==========================================
+    function DailyActivityTab({ members, onSelectMember }) {
+      const [selectedHandleForHeatmap, setSelectedHandleForHeatmap] = useState(
+        members.length > 0 ? members[0].info.handle : ''
+      );
+
+      const targetMember = useMemo(() => {
+        return members.find(m => m.info.handle === selectedHandleForHeatmap) || members[0];
+      }, [members, selectedHandleForHeatmap]);
+
+      // Generate the last 180 days list
+      const pastDays = useMemo(() => {
+        const days = [];
+        const today = new Date();
+        for (let i = 179; i >= 0; i--) {
+          const d = new Date(today);
+          d.setDate(d.getDate() - i);
+          days.push(d.toISOString().split('T')[0]);
+        }
+        return days;
+      }, []);
+
+      // Matrix of friends vs Last 7 days
+      const last7DaysHeaders = useMemo(() => {
+        const arr = [];
+        const today = new Date();
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(today);
+          d.setDate(d.getDate() - i);
+          arr.push({
+            dateKey: d.toISOString().split('T')[0],
+            label: i === 0 ? 'Today' : i === 1 ? 'Yesterday' : d.toLocaleDateString('en-US', { weekday: 'short' })
+          });
+        }
+        return arr;
+      }, []);
+
+      return (
+        <div className="space-y-8 animate-fadeIn">
+          <div>
+            <h2 className="text-2xl font-black text-white font-sans flex items-center gap-2">
+              <i data-lucide="calendar" className="w-6 h-6 text-cyan-400"></i>
+              <span>Daily Activity & Solved Matrix</span>
+            </h2>
+            <p className="text-xs font-mono text-slate-400 mt-1">
+              Submissions timestamps mapped to calendar dates to evaluate consistent grinding habits.
+            </p>
+          </div>
+
+          {/* 7-DAY SOLVING MATRIX TABLE */}
+          <div className="glass-panel rounded-2xl p-6">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-cyan-300 font-mono mb-4 flex items-center gap-2">
+              <i data-lucide="grid" className="w-4 h-4"></i>
+              <span>7-Day Clan Grinding Matrix</span>
+            </h3>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left font-mono text-xs">
+                <thead>
+                  <tr className="border-b border-white/[0.08] text-slate-400 text-[10px]">
+                    <th className="py-3 px-4">Programmer</th>
+                    {last7DaysHeaders.map(h => (
+                      <th key={h.dateKey} className="py-3 px-3 text-center">{h.label}</th>
+                    ))}
+                    <th className="py-3 px-4 text-right">7D Sum</th>
+                    <th className="py-3 px-4 text-right">Active Streak</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {members.map(m => (
+                    <tr key={m.info.handle} className="hover:bg-white/[0.02]">
+                      <td className="py-3 px-4">
+                        <div
+                          className="flex items-center space-x-2.5 cursor-pointer"
+                          onClick={() => onSelectMember(m)}
+                        >
+                          <img src={m.info.avatar || m.info.titlePhoto} alt="" className="w-6 h-6 rounded-full" />
+                          <span className="font-bold text-white hover:text-cyan-300 transition-colors">
+                            {m.info.handle}
+                          </span>
+                        </div>
+                      </td>
+
+                      {last7DaysHeaders.map(h => {
+                        const count = m.dailyCounts[h.dateKey] || 0;
+                        return (
+                          <td key={h.dateKey} className="py-3 px-3 text-center">
+                            <span
+                              className={`inline-block w-8 py-1 rounded text-[11px] font-bold ${
+                                count > 5
+                                  ? 'bg-cyan-500 text-black shadow-glow-cyan'
+                                  : count > 2
+                                  ? 'bg-cyan-500/40 text-cyan-200 border border-cyan-400/30'
+                                  : count > 0
+                                  ? 'bg-cyan-950/60 text-cyan-400 border border-cyan-800/40'
+                                  : 'text-slate-600 bg-white/[0.01]'
+                              }`}
+                            >
+                              {count}
+                            </span>
+                          </td>
+                        );
+                      })}
+
+                      <td className="py-3 px-4 text-right font-bold text-purple-400">
+                        +{m.solved7d}
+                      </td>
+                      <td className="py-3 px-4 text-right font-bold text-amber-400">
+                        {m.currentStreak > 0 ? `${m.currentStreak}d 🔥` : '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* GITHUB-STYLE ACTIVITY HEATMAP */}
+          <div className="glass-panel rounded-2xl p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-cyan-300 font-mono flex items-center gap-2">
+                  <i data-lucide="flame" className="w-4 h-4 text-cyan-400"></i>
+                  <span>Consistency Heatmap (180 Days)</span>
+                </h3>
+                <p className="text-xs text-slate-400 font-mono mt-1">Inspect individual problem solving density over time.</p>
+              </div>
+
+              {/* Handle Picker */}
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-mono text-slate-400">Inspecting:</span>
+                <select
+                  value={targetMember ? targetMember.info.handle : ''}
+                  onChange={(e) => setSelectedHandleForHeatmap(e.target.value)}
+                  className="bg-[#0b0f19] border border-white/[0.1] rounded-lg px-3 py-1.5 text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-400"
+                >
+                  {members.map(m => (
+                    <option key={m.info.handle} value={m.info.handle}>
+                      {m.info.handle} ({m.totalUniqueSolved} AC)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {targetMember && (
+              <div>
+                {/* Heatmap Grid */}
+                <div className="overflow-x-auto pb-4">
+                  <div className="flex gap-1.5 min-w-[700px]">
+                    {Array.from({ length: Math.ceil(pastDays.length / 7) }).map((_, colIdx) => (
+                      <div key={colIdx} className="flex flex-col gap-1.5">
+                        {Array.from({ length: 7 }).map((_, rowIdx) => {
+                          const dayIndex = colIdx * 7 + rowIdx;
+                          if (dayIndex >= pastDays.length) return null;
+                          const dateKey = pastDays[dayIndex];
+                          const count = targetMember.dailyCounts[dateKey] || 0;
+
+                          let bgClass = 'bg-white/[0.03] border border-white/[0.04]';
+                          if (count >= 7) bgClass = 'bg-cyan-400 shadow-glow-cyan border-cyan-300';
+                          else if (count >= 4) bgClass = 'bg-cyan-500/80 border-cyan-400/50';
+                          else if (count >= 2) bgClass = 'bg-cyan-600/50 border-cyan-500/40';
+                          else if (count === 1) bgClass = 'bg-cyan-900/60 border-cyan-700/50';
+
+                          return (
+                            <div
+                              key={dateKey}
+                              title={`${dateKey}: ${count} unique problem(s) solved`}
+                              className={`w-3.5 h-3.5 rounded-sm transition-transform hover:scale-125 cursor-pointer ${bgClass}`}
+                            />
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Heatmap Legend & Summary */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs font-mono text-slate-400 pt-4 border-t border-white/[0.06] gap-2">
+                  <div className="flex items-center space-x-4">
+                    <span>Current Streak: <strong className="text-amber-400">{targetMember.currentStreak} Days</strong></span>
+                    <span>Max Streak: <strong className="text-white">{targetMember.maxStreak} Days</strong></span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[10px]">Less</span>
+                    <span className="w-3 h-3 rounded-sm bg-white/[0.03] border border-white/[0.04]"></span>
+                    <span className="w-3 h-3 rounded-sm bg-cyan-900/60 border border-cyan-700/50"></span>
+                    <span className="w-3 h-3 rounded-sm bg-cyan-600/50 border-cyan-500/40"></span>
+                    <span className="w-3 h-3 rounded-sm bg-cyan-400 border-cyan-300"></span>
+                    <span className="text-[10px]">More</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // COMPONENT: ANALYTICS & INTERACTIVE SVG CHARTS
+    // ==========================================
+    function AnalyticsTab({ members }) {
+      const [selectedFriendsForChart, setSelectedFriendsForChart] = useState(
+        members.slice(0, 4).map(m => m.info.handle)
+      );
+
+      const toggleFriendSelection = (handle) => {
+        if (selectedFriendsForChart.includes(handle)) {
+          if (selectedFriendsForChart.length === 1) return; // Keep at least one
+          setSelectedFriendsForChart(selectedFriendsForChart.filter(h => h !== handle));
+        } else {
+          setSelectedFriendsForChart([...selectedFriendsForChart, handle]);
+        }
+      };
+
+      // Color palette for chart lines
+      const lineColors = ['#00f2fe', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
+
+      // Prepare Rating Progression Data
+      const ratingProgressionData = useMemo(() => {
+        const filtered = members.filter(m => selectedFriendsForChart.includes(m.info.handle));
+        // Gather all contest timestamps
+        let allTimestamps = [];
+        filtered.forEach(m => {
+          m.ratingHistory.forEach(c => allTimestamps.push(c.ratingUpdateTimeSeconds));
+        });
+        allTimestamps = [...new Set(allTimestamps)].sort((a, b) => a - b);
+
+        if (allTimestamps.length === 0) return { minRating: 1000, maxRating: 3000, series: [] };
+
+        let minRating = 9999;
+        let maxRating = 0;
+
+        const series = filtered.map((m, idx) => {
+          const points = [];
+          m.ratingHistory.forEach(c => {
+            minRating = Math.min(minRating, c.newRating);
+            maxRating = Math.max(maxRating, c.newRating);
+            points.push({
+              ts: c.ratingUpdateTimeSeconds,
+              rating: c.newRating,
+              contest: c.contestName
+            });
+          });
+          return {
+            handle: m.info.handle,
+            color: lineColors[idx % lineColors.length],
+            points
+          };
+        });
+
+        minRating = Math.max(0, Math.floor((minRating - 100) / 100) * 100);
+        maxRating = Math.ceil((maxRating + 100) / 100) * 100;
+
+        return { minRating, maxRating, series, allTimestamps };
+      }, [members, selectedFriendsForChart]);
+
+      // Difficulty distribution aggregation
+      const difficultyBuckets = [800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800, 3000];
+      const aggregatedDifficulty = useMemo(() => {
+        return difficultyBuckets.map(b => {
+          const totalForBucket = members.reduce((acc, m) => acc + (m.difficultyMap[b] || 0), 0);
+          return { bucket: b, count: totalForBucket };
+        });
+      }, [members]);
+
+      return (
+        <div className="space-y-8 animate-fadeIn">
+          <div>
+            <h2 className="text-2xl font-black text-white font-sans flex items-center gap-2">
+              <i data-lucide="line-chart" className="w-6 h-6 text-purple-400"></i>
+              <span>Clan Telemetry & Interactive Graphs</span>
+            </h2>
+            <p className="text-xs font-mono text-slate-400 mt-1">Multi-user rating curves and problem difficulty distribution.</p>
+          </div>
+
+          {/* CHART 1: RATING PROGRESSION CURVE */}
+          <div className="glass-panel rounded-2xl p-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-cyan-300 font-mono flex items-center gap-2">
+                  <i data-lucide="trending-up" className="w-4 h-4 text-cyan-400"></i>
+                  <span>Rating Progression Comparison Over Time</span>
+                </h3>
+                <p className="text-xs text-slate-400 font-mono mt-0.5">Calculated from official Codeforces rated contests.</p>
+              </div>
+
+              {/* Filter pills to toggle members */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {members.map(m => {
+                  const isSelected = selectedFriendsForChart.includes(m.info.handle);
+                  return (
+                    <button
+                      key={m.info.handle}
+                      onClick={() => toggleFriendSelection(m.info.handle)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all border ${
+                        isSelected
+                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-glow-cyan'
+                          : 'bg-white/[0.02] text-slate-500 border-white/[0.05]'
+                      }`}
+                    >
+                      {m.info.handle}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Custom Interactive SVG Graph */}
+            <div className="w-full h-72 sm:h-80 relative select-none">
+              {ratingProgressionData.series.length > 0 && ratingProgressionData.allTimestamps.length > 0 ? (
+                (() => {
+                  const svgWidth = 800;
+                  const svgHeight = 280;
+                  const padding = { top: 20, right: 30, bottom: 30, left: 50 };
+                  const graphW = svgWidth - padding.left - padding.right;
+                  const graphH = svgHeight - padding.top - padding.bottom;
+
+                  const minTs = ratingProgressionData.allTimestamps[0];
+                  const maxTs = ratingProgressionData.allTimestamps[ratingProgressionData.allTimestamps.length - 1];
+                  const tsSpan = Math.max(1, maxTs - minTs);
+
+                  const { minRating, maxRating } = ratingProgressionData;
+                  const ratingSpan = Math.max(1, maxRating - minRating);
+
+                  const getX = (ts) => padding.left + ((ts - minTs) / tsSpan) * graphW;
+                  const getY = (r) => padding.top + (1 - (r - minRating) / ratingSpan) * graphH;
+
+                  return (
+                    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-full overflow-visible">
+                      {/* Grid Lines */}
+                      {[0, 0.25, 0.5, 0.75, 1].map((pct, idx) => {
+                        const y = padding.top + pct * graphH;
+                        const ratingVal = Math.round(maxRating - pct * ratingSpan);
+                        return (
+                          <g key={idx}>
+                            <line x1={padding.left} y1={y} x2={svgWidth - padding.right} y2={y} stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
+                            <text x={padding.left - 8} y={y + 3} textAnchor="end" fill="#64748b" fontSize="10" fontFamily="JetBrains Mono">{ratingVal}</text>
+                          </g>
+                        );
+                      })}
+
+                      {/* Series Paths */}
+                      {ratingProgressionData.series.map((s) => {
+                        if (s.points.length === 0) return null;
+                        const pathD = s.points.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${getX(pt.ts)} ${getY(pt.rating)}`).join(' ');
+
+                        return (
+                          <g key={s.handle}>
+                            <path
+                              d={pathD}
+                              fill="none"
+                              stroke={s.color}
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="transition-all duration-300 opacity-90"
+                            />
+                            {/* Points on Line */}
+                            {s.points.map((pt, pIdx) => (
+                              <circle
+                                key={pIdx}
+                                cx={getX(pt.ts)}
+                                cy={getY(pt.rating)}
+                                r="3"
+                                fill={s.color}
+                                className="cursor-pointer hover:r-5 transition-all"
+                              >
+                                <title>{`${s.handle}: ${pt.rating} (${pt.contest})`}</title>
+                              </circle>
+                            ))}
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  );
+                })()
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs font-mono text-slate-500">
+                  Insufficient contest history for selected friends.
+                </div>
+              )}
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-white/[0.06] flex-wrap">
+              {ratingProgressionData.series.map((s) => (
+                <div key={s.handle} className="flex items-center space-x-2 text-xs font-mono">
+                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }}></span>
+                  <span className="text-white font-bold">{s.handle}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* CHART 2: PROBLEM DIFFICULTY DISTRIBUTION */}
+          <div className="glass-panel rounded-2xl p-6">
+            <div className="mb-6">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-cyan-300 font-mono flex items-center gap-2">
+                <i data-lucide="bar-chart-2" className="w-4 h-4 text-cyan-400"></i>
+                <span>Problem Difficulty Spectrum (Combined Clan Breakdown)</span>
+              </h3>
+              <p className="text-xs text-slate-400 font-mono mt-0.5">Distribution of accepted problems categorized by official difficulty tiers.</p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+              {aggregatedDifficulty.map(item => {
+                const maxCount = Math.max(1, ...aggregatedDifficulty.map(d => d.count));
+                const heightPct = Math.round((item.count / maxCount) * 100);
+
+                return (
+                  <div key={item.bucket} className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-3 flex flex-col justify-between h-36">
+                    <div className="flex items-center justify-between text-[11px] font-mono">
+                      <span className="text-cyan-400 font-bold">{item.bucket}</span>
+                      <span className="text-slate-400">{item.count}</span>
+                    </div>
+
+                    {/* Bar visualization */}
+                    <div className="w-full bg-white/[0.05] rounded-full h-20 flex items-end p-1">
+                      <div
+                        style={{ height: `${heightPct}%` }}
+                        className="w-full rounded-md bg-gradient-to-t from-cyan-500 to-purple-500 transition-all duration-500 shadow-glow-cyan"
+                      />
+                    </div>
+
+                    <span className="text-[10px] text-center font-mono text-slate-500 block">Tier {item.bucket}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // COMPONENT: GAMIFICATION & BADGES
+    // ==========================================
+    function GamificationTab({ members, stats, onSelectMember }) {
+      if (!stats) return null;
+
+      // Badges definitions
+      const badges = [
+        {
+          id: 'b1',
+          title: 'Century Slayer',
+          desc: 'Solved over 100 unique Codeforces problems.',
+          icon: 'target',
+          color: 'from-blue-500 to-cyan-500',
+          unlockedBy: members.filter(m => m.totalUniqueSolved >= 100)
+        },
+        {
+          id: 'b2',
+          title: 'Grind Marathon',
+          desc: 'Maintained a consecutive solving streak of 5+ days.',
+          icon: 'flame',
+          color: 'from-amber-500 to-red-500',
+          unlockedBy: members.filter(m => m.maxStreak >= 5)
+        },
+        {
+          id: 'b3',
+          title: 'Expert Tier & Above',
+          desc: 'Reached a rating of 1600+ (Blue rank or higher).',
+          icon: 'shield',
+          color: 'from-purple-500 to-indigo-500',
+          unlockedBy: members.filter(m => (m.info.maxRating || 0) >= 1600)
+        },
+        {
+          id: 'b4',
+          title: 'Sprint Champion',
+          desc: 'Solved 5 or more unique problems in a single 24-hour window.',
+          icon: 'zap',
+          color: 'from-emerald-400 to-cyan-500',
+          unlockedBy: members.filter(m => m.solvedToday >= 5 || Object.values(m.dailyCounts).some(c => c >= 5))
+        },
+        {
+          id: 'b5',
+          title: 'Grandmaster Apex',
+          desc: 'Ascended to Grandmaster (2400+ rating).',
+          icon: 'crown',
+          color: 'from-red-600 to-rose-400',
+          unlockedBy: members.filter(m => (m.info.maxRating || 0) >= 2400)
+        },
+        {
+          id: 'b6',
+          title: 'Weekly Dominator',
+          desc: 'Solved 15+ problems during the past 7 days.',
+          icon: 'award',
+          color: 'from-fuchsia-500 to-purple-600',
+          unlockedBy: members.filter(m => m.solved7d >= 15)
+        }
+      ];
+
+      return (
+        <div className="space-y-8 animate-fadeIn">
+          <div>
+            <h2 className="text-2xl font-black text-white font-sans flex items-center gap-2">
+              <i data-lucide="award" className="w-6 h-6 text-amber-400"></i>
+              <span>Competitive Arena & Clan Honors</span>
+            </h2>
+            <p className="text-xs font-mono text-slate-400 mt-1">Gamified achievements calculated from Codeforces verified telemetry.</p>
+          </div>
+
+          {/* TROPHY SHOWCASE: MVPs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Daily MVP Honor Box */}
+            <div className="glass-panel rounded-2xl p-6 border-cyan-500/30 bg-gradient-to-br from-cyan-950/20 to-transparent">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-300">
+                  <i data-lucide="zap" className="w-6 h-6"></i>
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-white font-sans">Vanguard of the Day</h3>
+                  <p className="text-xs font-mono text-cyan-400">Most accepted problems in last 24h</p>
+                </div>
+              </div>
+              {stats.mostActiveToday ? (
+                <div
+                  className="flex items-center space-x-4 p-4 rounded-xl bg-black/40 border border-white/[0.08] cursor-pointer hover:border-cyan-500/40 transition-all"
+                  onClick={() => onSelectMember(stats.mostActiveToday)}
+                >
+                  <img
+                    src={stats.mostActiveToday.info.avatar || stats.mostActiveToday.info.titlePhoto}
+                    alt=""
+                    className="w-14 h-14 rounded-full border-2 border-cyan-400 object-cover"
+                  />
+                  <div>
+                    <h4 className="font-bold text-white text-lg">{stats.mostActiveToday.info.handle}</h4>
+                    <p className="text-xs font-mono text-cyan-300">🔥 +{stats.mostActiveToday.solvedToday} Solutions logged today</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs font-mono text-slate-500 py-4">No champion crowned today yet.</p>
+              )}
+            </div>
+
+            {/* Weekly MVP Honor Box */}
+            <div className="glass-panel rounded-2xl p-6 border-purple-500/30 bg-gradient-to-br from-purple-950/20 to-transparent">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-300">
+                  <i data-lucide="trophy" className="w-6 h-6"></i>
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-white font-sans">Weekly Clan MVP</h3>
+                  <p className="text-xs font-mono text-purple-400">Most prolific grinder past 7 days</p>
+                </div>
+              </div>
+              {stats.weeklyMvp ? (
+                <div
+                  className="flex items-center space-x-4 p-4 rounded-xl bg-black/40 border border-white/[0.08] cursor-pointer hover:border-purple-500/40 transition-all"
+                  onClick={() => onSelectMember(stats.weeklyMvp)}
+                >
+                  <img
+                    src={stats.weeklyMvp.info.avatar || stats.weeklyMvp.info.titlePhoto}
+                    alt=""
+                    className="w-14 h-14 rounded-full border-2 border-purple-400 object-cover"
+                  />
+                  <div>
+                    <h4 className="font-bold text-white text-lg">{stats.weeklyMvp.info.handle}</h4>
+                    <p className="text-xs font-mono text-purple-300">👑 +{stats.weeklyMvp.solved7d} Problems solved this week</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs font-mono text-slate-500 py-4">No solutions logged this week.</p>
+              )}
+            </div>
+          </div>
+
+          {/* BADGES MATRIX */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 font-mono">Unlockable Honor Badges</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {badges.map(b => (
+                <div key={b.id} className="glass-panel rounded-xl p-5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center space-x-3 mb-2">
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${b.color} flex items-center justify-center text-white shadow-lg`}>
+                        <i data-lucide={b.icon} className="w-5 h-5"></i>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-white text-sm font-sans">{b.title}</h4>
+                        <span className="text-[10px] font-mono text-slate-400">{b.unlockedBy.length} Clan members unlocked</span>
+                      </div>
+                    </div>
+                    <p className="text-xs font-sans text-slate-400 mt-2">{b.desc}</p>
+                  </div>
+
+                  {/* Holders row */}
+                  <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center gap-1.5 flex-wrap">
+                    {b.unlockedBy.length > 0 ? (
+                      b.unlockedBy.map(m => (
+                        <span
+                          key={m.info.handle}
+                          onClick={() => onSelectMember(m)}
+                          className="px-2 py-0.5 rounded text-[10px] font-mono bg-white/[0.05] hover:bg-white/[0.1] text-slate-300 cursor-pointer border border-white/[0.08]"
+                        >
+                          {m.info.handle}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[10px] font-mono text-slate-600">Locked by everyone</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // COMPONENT: MANAGE SQUAD TAB
+    // ==========================================
+    function ManageSquadTab({ handles, members, newHandle, setNewHandle, onAdd, onRemove, adding, onReset }) {
+      return (
+        <div className="max-w-4xl mx-auto space-y-8 animate-fadeIn">
+          <div>
+            <h2 className="text-2xl font-black text-white font-sans flex items-center gap-2">
+              <i data-lucide="users" className="w-6 h-6 text-cyan-400"></i>
+              <span>Squad Configuration</span>
+            </h2>
+            <p className="text-xs font-mono text-slate-400 mt-1">
+              Add friends by their Codeforces username to track and compare. Persisted automatically in browser storage.
+            </p>
+          </div>
+
+          {/* ADD HANDLE FORM */}
+          <div className="glass-panel rounded-2xl p-6 border-cyan-500/20 shadow-glow-cyan">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-cyan-300 font-mono mb-4">
+              Enroll New Codeforces Handle
+            </h3>
+            <form onSubmit={onAdd} className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  placeholder="e.g. tourist, Benq, your_handle..."
+                  value={newHandle}
+                  onChange={(e) => setNewHandle(e.target.value)}
+                  disabled={adding}
+                  className="w-full bg-[#080c14] border border-white/[0.1] rounded-xl px-4 py-3 text-sm font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={adding || !newHandle.trim()}
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-mono text-xs font-bold transition-all shadow-glow-cyan disabled:opacity-50 flex items-center justify-center space-x-2"
+              >
+                {adding ? (
+                  <>
+                    <i data-lucide="loader-2" className="w-4 h-4 animate-spin"></i>
+                    <span>VALIDATING...</span>
+                  </>
+                ) : (
+                  <>
+                    <i data-lucide="user-plus" className="w-4 h-4"></i>
+                    <span>ADD TO SQUAD</span>
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+
+          {/* ACTIVE MEMBERS LIST */}
+          <div className="glass-panel rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 font-mono">
+                Active Squad Members ({handles.length})
+              </h3>
+              <button
+                onClick={onReset}
+                className="text-xs font-mono text-slate-500 hover:text-rose-400 transition-colors"
+              >
+                Reset to Global Demo Clan
+              </button>
+            </div>
+
+            <div className="divide-y divide-white/[0.05]">
+              {handles.map(handle => {
+                const found = members.find(m => m.info.handle.toLowerCase() === handle.toLowerCase());
+                return (
+                  <div key={handle} className="py-3.5 flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      {found ? (
+                        <img
+                          src={found.info.avatar || found.info.titlePhoto}
+                          alt=""
+                          className="w-9 h-9 rounded-full border border-white/[0.1] object-cover"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center font-mono text-xs">?</div>
+                      )}
+                      <div>
+                        <span className="font-bold text-white font-mono text-sm">{handle}</span>
+                        {found && (
+                          <span className="block text-[10px] font-mono" style={{ color: found.rankMeta.color }}>
+                            {found.rankMeta.name} &bull; Rating: {found.info.rating || 'Unrated'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => onRemove(handle)}
+                      title="Remove from squad"
+                      className="p-2 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                    >
+                      <i data-lucide="trash-2" className="w-4 h-4"></i>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // COMPONENT: INDIVIDUAL PROFILE MODAL
+    // ==========================================
+    function ProfileModal({ member, onClose }) {
+      if (!member) return null;
+
+      const { info, rankMeta, totalUniqueSolved, solvedToday, solved7d, solved30d, currentStreak, maxStreak, recentAccepted, ratingHistory } = member;
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div
+            className="relative w-full max-w-4xl max-h-[90vh] glass-panel rounded-3xl overflow-hidden flex flex-col border-cyan-500/30 shadow-glow-cyan"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="relative p-6 sm:p-8 bg-gradient-to-r from-cyan-950/40 via-purple-950/40 to-slate-900/60 border-b border-white/[0.08]">
+              <button
+                onClick={onClose}
+                className="absolute top-6 right-6 p-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-slate-400 hover:text-white transition-colors"
+              >
+                <i data-lucide="x" className="w-5 h-5"></i>
+              </button>
+
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
+                <img
+                  src={info.avatar || info.titlePhoto}
+                  alt={info.handle}
+                  className="w-20 h-20 rounded-2xl border-2 border-cyan-400/60 shadow-lg object-cover"
+                />
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <h2 className="text-2xl font-extrabold text-white font-sans">{info.handle}</h2>
+                    <a
+                      href={`https://codeforces.com/profile/${info.handle}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-cyan-400 hover:text-cyan-300"
+                      title="Open Codeforces Profile"
+                    >
+                      <i data-lucide="external-link" className="w-4 h-4"></i>
+                    </a>
+                  </div>
+
+                  <p className="text-xs font-mono font-bold mt-1" style={{ color: rankMeta.color }}>
+                    {rankMeta.name} &bull; Current Rating: {info.rating || 'Unrated'} (Peak: {info.maxRating || 'N/A'})
+                  </p>
+
+                  <p className="text-[11px] font-mono text-slate-400 mt-1">
+                    {info.organization ? `${info.organization} &bull; ` : ''}
+                    {info.city ? `${info.city}, ` : ''}{info.country || 'Global Citizen'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Body: Scrollable Statistics */}
+            <div className="p-6 sm:p-8 overflow-y-auto space-y-6">
+              
+              {/* Quick 4 Stats Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono">
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                  <span className="text-[10px] text-slate-400 block">TOTAL UNIQUE AC</span>
+                  <span className="text-xl font-bold text-white">{totalUniqueSolved}</span>
+                </div>
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                  <span className="text-[10px] text-slate-400 block">SOLVED TODAY</span>
+                  <span className="text-xl font-bold text-cyan-400">+{solvedToday}</span>
+                </div>
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                  <span className="text-[10px] text-slate-400 block">7-DAY VOLUME</span>
+                  <span className="text-xl font-bold text-purple-400">+{solved7d}</span>
+                </div>
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                  <span className="text-[10px] text-slate-400 block">ACTIVE STREAK</span>
+                  <span className="text-xl font-bold text-amber-400">{currentStreak}d (Max {maxStreak}d)</span>
+                </div>
+              </div>
+
+              {/* Recent Accepted Problems List */}
+              <div>
+                <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-300 mb-3 flex items-center gap-2">
+                  <i data-lucide="check-circle-2" className="w-4 h-4 text-emerald-400"></i>
+                  <span>Recent Accepted Solutions (Codeforces Verified)</span>
+                </h4>
+
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {recentAccepted.slice(0, 10).map((sub, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-between text-xs font-mono hover:border-cyan-500/30 transition-colors"
+                    >
+                      <div className="flex items-center space-x-3 overflow-hidden">
+                        <span className="text-emerald-400 font-bold">OK</span>
+                        <a
+                          href={`https://codeforces.com/contest/${sub.problem.contestId}/problem/${sub.problem.index}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-white hover:text-cyan-300 font-sans font-medium truncate"
+                        >
+                          {sub.problem.contestId}{sub.problem.index} - {sub.problem.name}
+                        </a>
+                      </div>
+                      <div className="flex items-center space-x-3 flex-shrink-0">
+                        {sub.problem.rating && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950/50 text-cyan-400 border border-cyan-800/40">
+                            ★ {sub.problem.rating}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-slate-500">
+                          {formatTimeAgo(sub.creationTimeSeconds)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Contest Performance History */}
+              {ratingHistory.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-purple-300 mb-3 flex items-center gap-2">
+                    <i data-lucide="award" className="w-4 h-4 text-purple-400"></i>
+                    <span>Latest Contest Rating Swings</span>
+                  </h4>
+
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {[...ratingHistory].reverse().slice(0, 5).map((c) => {
+                      const delta = c.newRating - c.oldRating;
+                      return (
+                        <div
+                          key={c.contestId}
+                          className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-between text-xs font-mono"
+                        >
+                          <div className="truncate max-w-[280px] sm:max-w-md font-sans font-medium text-white">
+                            {c.contestName}
+                          </div>
+                          <div className="flex items-center space-x-4 flex-shrink-0">
+                            <span className="text-slate-400 text-[10px]">Rank #{c.rank}</span>
+                            <span className="font-bold text-white">{c.newRating}</span>
+                            <span className={`font-bold ${delta >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                              {delta >= 0 ? `+${delta}` : delta}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-[#080b12] border-t border-white/[0.06] flex justify-end">
+              <button
+                onClick={onClose}
+                className="px-5 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs font-mono text-white transition-colors"
+              >
+                CLOSE TELEMETRY
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // INITIALIZE REACT APP
+    // ==========================================
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
+
