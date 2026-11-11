@@ -127,7 +127,7 @@
     ];
 
     const CACHE_KEY_MEMBERS = 'PULSE_MEMBERS_V5';
-    const CACHE_KEY_DATA = 'PULSE_DATA_V5';
+    const CACHE_KEY_DATA = 'PULSE_DATA_V6';
     const CACHE_EXPIRY = 5 * 60 * 1000; // 5 min
 
     // CODEFORCES TIERS
@@ -161,6 +161,38 @@
     // ==========================================
     // INTERACTIVE CYBERNETIC CANVAS
     // ==========================================
+    // Use the browser's local calendar date consistently for activity stats.
+    function localDateKey(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function dateKeyOrdinal(dateKey) {
+      const [year, month, day] = dateKey.split('-').map(Number);
+      return Date.UTC(year, month - 1, day) / 86400000;
+    }
+
+    // Space Codeforces API requests to avoid sending them too quickly.
+    let lastCodeforcesRequestAt = 0;
+    async function fetchCodeforcesJson(url) {
+      const wait = Math.max(0, 2100 - (Date.now() - lastCodeforcesRequestAt));
+      if (wait) await new Promise(resolve => setTimeout(resolve, wait));
+      lastCodeforcesRequestAt = Date.now();
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Codeforces returned HTTP ${response.status}`);
+      }
+
+      const json = await response.json();
+      if (json.status !== 'OK') {
+        throw new Error(json.comment || 'Codeforces API request failed');
+      }
+      return json;
+    }
+
     function CyberBackground() {
       const canvasRef = useRef(null);
       useEffect(() => {
@@ -270,6 +302,7 @@
       const [activeTab, setActiveTab] = useState('hub'); // 'hub' | 'podium' | 'activity' | 'telemetry' | 'badges' | 'squad'
       const [selectedMember, setSelectedMember] = useState(null);
       const [lastUpdated, setLastUpdated] = useState(null);
+      const [syncError, setSyncError] = useState('');
 
       // Squad form
       const [formName, setFormName] = useState('');
@@ -294,6 +327,7 @@
         }
 
         try {
+          setSyncError('');
           if (!force) {
             const cached = localStorage.getItem(CACHE_KEY_DATA);
             if (cached) {
@@ -315,21 +349,24 @@
           let cfProfiles = {};
           if (cfHandles.length > 0) {
             try {
-              const r = await fetch(`https://codeforces.com/api/user.info?handles=${encodeURIComponent(cfHandles.join(';'))}`);
-              const j = await r.json();
-              if (j.status === 'OK') {
-                j.result.forEach(u => { cfProfiles[u.handle.toLowerCase()] = u; });
-              }
+              const j = await fetchCodeforcesJson(`https://codeforces.com/api/user.info?handles=${encodeURIComponent(cfHandles.join(';'))}`);
+              j.result.forEach(u => { cfProfiles[u.handle.toLowerCase()] = u; });
             } catch (err) {
               console.warn('CF Batch Fetch Warning:', err);
             }
           }
 
           const aggregated = [];
-          const nowTs = Math.floor(Date.now() / 1000);
-          const oneDayAgo = nowTs - 86400;
-          const sevenDaysAgo = nowTs - 7 * 86400;
-          const thirtyDaysAgo = nowTs - 30 * 86400;
+          // Calendar periods use the browser's local timezone.
+          const today = new Date();
+          const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+          const weekStart = new Date(todayStart);
+          weekStart.setDate(weekStart.getDate() - 6);
+          const monthStart = new Date(todayStart);
+          monthStart.setDate(monthStart.getDate() - 29);
+          const todayStartTs = Math.floor(todayStart.getTime() / 1000);
+          const weekStartTs = Math.floor(weekStart.getTime() / 1000);
+          const monthStartTs = Math.floor(monthStart.getTime() / 1000);
 
           // 2. Process each member's multi-platform profile
           for (let i = 0; i < members.length; i++) {
@@ -340,19 +377,19 @@
             let cfSubmissions = [];
             let cfRatingHistory = [];
             if (mem.cf) {
-              try {
-                const subR = await fetch(`https://codeforces.com/api/user.status?handle=${encodeURIComponent(mem.cf)}&from=1&count=800`);
-                const subJ = await subR.json();
-                if (subJ.status === 'OK') cfSubmissions = subJ.result;
-              } catch (e) {}
+              // Fetch public submissions in pages instead of silently stopping at 800.
+              let from = 1;
+              const pageSize = 10000;
+              while (true) {
+                const subJ = await fetchCodeforcesJson(`https://codeforces.com/api/user.status?handle=${encodeURIComponent(mem.cf)}&from=${from}&count=${pageSize}`);
+                cfSubmissions.push(...subJ.result);
 
-              await new Promise(r => setTimeout(r, 200)); // Throttling
+                if (subJ.result.length < pageSize) break;
+                from += subJ.result.length;
+              }
 
-              try {
-                const ratR = await fetch(`https://codeforces.com/api/user.rating?handle=${encodeURIComponent(mem.cf)}`);
-                const ratJ = await ratR.json();
-                if (ratJ.status === 'OK') cfRatingHistory = ratJ.result;
-              } catch (e) {}
+              const ratJ = await fetchCodeforcesJson(`https://codeforces.com/api/user.rating?handle=${encodeURIComponent(mem.cf)}`);
+              cfRatingHistory = ratJ.result;
             }
 
             // Parse Codeforces AC Problems & Heatmap
@@ -369,7 +406,7 @@
               if (!uniqueProblemsMap.has(key)) {
                 uniqueProblemsMap.set(key, sub);
 
-                const dStr = new Date(sub.creationTimeSeconds * 1000).toISOString().split('T')[0];
+                const dStr = localDateKey(new Date(sub.creationTimeSeconds * 1000));
                 dailyCounts[dStr] = (dailyCounts[dStr] || 0) + 1;
 
                 if (sub.problem.rating) {
@@ -385,27 +422,47 @@
 
             uniqueProblemsMap.forEach(sub => {
               const ts = sub.creationTimeSeconds;
-              if (ts >= oneDayAgo) solvedToday++;
-              if (ts >= sevenDaysAgo) solved7d++;
-              if (ts >= thirtyDaysAgo) solved30d++;
+              if (ts >= todayStartTs) solvedToday++;
+              if (ts >= weekStartTs) solved7d++;
+              if (ts >= monthStartTs) solved30d++;
             });
 
-            // Calculate Continuous Streak
+            // Calculate the longest streak across all available submission history.
+            const activeDays = Object.keys(dailyCounts)
+              .filter(key => dailyCounts[key] > 0)
+              .sort();
+
             let currentStreak = 0;
             let maxStreak = 0;
             let counter = 0;
-            const nowD = new Date();
-            for (let d = 0; d < 365; d++) {
-              const testD = new Date(nowD);
-              testD.setDate(testD.getDate() - d);
-              const key = testD.toISOString().split('T')[0];
-              if (dailyCounts[key] && dailyCounts[key] > 0) {
+
+            for (let d = 0; d < activeDays.length; d++) {
+              if (
+                d === 0 ||
+                dateKeyOrdinal(activeDays[d]) - dateKeyOrdinal(activeDays[d - 1]) === 1
+              ) {
                 counter++;
-                if (d <= 1) currentStreak = counter;
-                maxStreak = Math.max(maxStreak, counter);
               } else {
-                if (d <= 1) currentStreak = 0;
-                counter = 0;
+                counter = 1;
+              }
+              maxStreak = Math.max(maxStreak, counter);
+            }
+
+            // A streak remains active if the user solved today or yesterday.
+            const todayKey = localDateKey(new Date());
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayKey = localDateKey(yesterday);
+            const streakAnchor = dailyCounts[todayKey] ? todayKey : yesterdayKey;
+
+            if (dailyCounts[streakAnchor]) {
+              currentStreak = 1;
+              const cursor = new Date(`${streakAnchor}T12:00:00`);
+
+              while (true) {
+                cursor.setDate(cursor.getDate() - 1);
+                if (!dailyCounts[localDateKey(cursor)]) break;
+                currentStreak++;
               }
             }
 
@@ -450,7 +507,7 @@
               } catch (e) {}
             }
 
-            const cfProfile = cfProfiles[mem.cf.toLowerCase()] || { handle: mem.cf, rating: 0 };
+            const cfProfile = (mem.cf && cfProfiles[mem.cf.toLowerCase()]) || { handle: mem.cf || 'N/A', rating: 0 };
             const combinedScore = uniqueProblemsMap.size + lcStats.total;
 
             aggregated.push({
@@ -479,6 +536,7 @@
           setLastUpdated(Date.now());
         } catch (err) {
           console.error(err);
+          setSyncError(err.message || 'Unable to refresh data. Please try again.');
         } finally {
           setLoading(false);
           setRefreshing(false);
@@ -517,19 +575,39 @@
       }, [clanData]);
 
       // Handlers
-      const handleAddMember = (e) => {
+      const handleAddMember = async (e) => {
         e.preventDefault();
-        if (!formName.trim() || !formCf.trim()) return;
+        const cfHandle = formCf.trim();
+
+        if (!formName.trim() || !cfHandle) return;
+
+        if (members.some(m => (m.cf || '').toLowerCase() === cfHandle.toLowerCase())) {
+          alert('This Codeforces handle is already in the squad.');
+          return;
+        }
+
+        // Verify the Codeforces handle before saving it to the squad.
+        try {
+          await fetchCodeforcesJson(`https://codeforces.com/api/user.info?handles=${encodeURIComponent(cfHandle)}`);
+        } catch (err) {
+          alert(`Could not verify Codeforces handle: ${err.message}`);
+          return;
+        }
+
         const updated = [...members, {
           name: formName.trim(),
-          cf: formCf.trim(),
-          lc: formLc.trim() || formCf.trim(),
-          cc: formCc.trim() || formCf.trim()
+          cf: cfHandle,
+          lc: formLc.trim() || cfHandle,
+          cc: formCc.trim() || cfHandle
         }];
+
         setMembers(updated);
-        setFormName(''); setFormCf(''); setFormLc(''); setFormCc('');
+        setFormName('');
+        setFormCf('');
+        setFormLc('');
+        setFormCc('');
         localStorage.removeItem(CACHE_KEY_DATA);
-        fetchTelemetry(true);
+        // The members effect will start a refresh using the updated state.
       };
 
       const handleRemoveMember = (idx) => {
@@ -538,7 +616,7 @@
           const updated = members.filter((_, i) => i !== idx);
           setMembers(updated);
           localStorage.removeItem(CACHE_KEY_DATA);
-          fetchTelemetry(true);
+          // The members effect will refresh using the updated state.
         }
       };
 
@@ -629,6 +707,14 @@
 
             {/* MAIN VIEWPORT */}
             <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+              {syncError && (
+                <div
+                  role="alert"
+                  className="mb-5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200 font-mono"
+                >
+                  Data sync issue: {syncError}. Existing displayed data has been kept; use SYNC to retry.
+                </div>
+              )}
               {loading && clanData.length === 0 ? (
                 <div className="py-32 flex flex-col items-center justify-center text-center">
                   <div className="relative w-16 h-16 mb-4">
@@ -1172,9 +1258,9 @@
         const days = [];
         const today = new Date();
         for (let i = 179; i >= 0; i--) {
-          const d = new Date(today);
+          const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
           d.setDate(d.getDate() - i);
-          days.push(d.toISOString().split('T')[0]);
+          days.push(localDateKey(d));
         }
         return days;
       }, []);
@@ -1183,10 +1269,10 @@
         const arr = [];
         const today = new Date();
         for (let i = 6; i >= 0; i--) {
-          const d = new Date(today);
+          const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
           d.setDate(d.getDate() - i);
           arr.push({
-            dateKey: d.toISOString().split('T')[0],
+            dateKey: localDateKey(d),
             label: i === 0 ? 'Today' : i === 1 ? 'Yest' : d.toLocaleDateString('en-US', { weekday: 'short' })
           });
         }
